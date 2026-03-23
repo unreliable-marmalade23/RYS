@@ -92,27 +92,36 @@ def write_shards(
     name_mapping: dict[str, str],
     source_weight_map: dict[str, str],
 ) -> None:
+    # Group new tensors by output shard
     grouped: dict[str, list[tuple[str, str]]] = {}
     for new_key, target_file in output_weight_map.items():
         grouped.setdefault(target_file, []).append((new_key, name_mapping[new_key]))
 
-    source_files = sorted(set(source_weight_map.values()))
-    with ExitStack() as stack:
-        handles = {
-            source_file: stack.enter_context(safe_open(source_dir / source_file, framework="pt", device="cpu"))
-            for source_file in source_files
-        }
-        for shard_name in sorted(grouped):
-            entries = grouped[shard_name]
-            tensors = {}
+    for shard_name in sorted(grouped):
+        entries = grouped[shard_name]
+        
+        # Figure out which source files this shard needs
+        needed_sources = set()
+        for _, old_key in entries:
+            needed_sources.add(source_weight_map[old_key])
+        
+        # Open only those source files
+        tensors = {}
+        with ExitStack() as stack:
+            handles = {
+                sf: stack.enter_context(safe_open(source_dir / sf, framework="pt", device="cpu"))
+                for sf in needed_sources
+            }
             for new_key, old_key in entries:
                 source_file = source_weight_map[old_key]
                 tensors[new_key] = handles[source_file].get_tensor(old_key).clone()
-            target_path = output_dir / shard_name
-            print(f"[export] writing {target_path.name} with {len(entries)} tensors")
-            save_file(tensors, str(target_path))
-            del tensors
-            gc.collect()
+        
+        # Handles are closed here before we write
+        target_path = output_dir / shard_name
+        print(f"[export] writing {target_path.name} with {len(entries)} tensors")
+        save_file(tensors, str(target_path))
+        del tensors
+        gc.collect()
 
 
 def build_manifest(
